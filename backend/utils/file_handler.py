@@ -29,11 +29,22 @@ def save_uploaded_file(file, project_id=None):
     """Save uploaded file"""
     if not file or not file.filename:
         return None, "No file provided"
-    
+
     original_filename = file.filename
-    filename = f"{uuid.uuid4()}_{original_filename}"
+
+    # Validate file extension against the allowlist before saving.
+    # This prevents unrestricted upload of dangerous file types (CWE-434).
+    if not allowed_file(original_filename):
+        return None, "File type not allowed"
+
+    # Use werkzeug's secure_filename to strip path separators and special chars,
+    # then combine with a UUID to ensure uniqueness and avoid collisions.
+    safe_name = secure_filename(original_filename)
+    if not safe_name:
+        return None, "Invalid filename"
+    filename = f"{uuid.uuid4()}_{safe_name}"
     file_path = os.path.join(Config.UPLOAD_FOLDER, filename)
-    
+
     try:
         file.save(file_path)
         os.chmod(file_path, 0o644)
